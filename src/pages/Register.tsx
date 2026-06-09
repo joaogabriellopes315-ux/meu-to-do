@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const Register = () => {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,19 +30,53 @@ const Register = () => {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // 1️⃣ Register user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name }, // store name in user metadata
+        },
+      });
+
+      if (authError) {
+        toast.error(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2️⃣ Create a profile row linked to the new user
+      const userId = authData?.user?.id;
+      if (userId) {
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: userId,
+          full_name: name,
+          email,
+        });
+
+        if (profileError) {
+          toast.error("Erro ao criar perfil: " + profileError.message);
+          setLoading(false);
+          return;
+        }
+      }
+
+      toast.success("Cadastro concluído! Redirecionando...");
+      // 3️⃣ Auto‑login and go to dashboard
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Cadastro realizado! Verifique seu email para confirmar.");
-        navigate("/login");
+      if (signInError) {
+        toast.error(signInError.message);
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      toast.error("Ocorreu um erro durante o cadastro");
+
+      navigate("/dashboard");
+    } catch (e) {
+      toast.error("Erro inesperado ao registrar");
     } finally {
       setLoading(false);
     }
@@ -50,22 +85,33 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Crie sua conta</h1>
-          <p className="text-gray-600">Cadastre-se para começar</p>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 text-center mb-4">
+          Crie sua conta
+        </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome completo
+            </label>
+            <input
+              type="text"
+              required
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
             <input
-              id="email"
               type="email"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-              placeholder="seu@email.com"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -73,15 +119,13 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Senha
             </label>
             <input
-              id="password"
               type="password"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-              placeholder="••••••••"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
@@ -89,15 +133,13 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-              Confirmar Senha
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Confirmar senha
             </label>
             <input
-              id="confirmPassword"
               type="password"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-              placeholder="••••••••"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={loading}
@@ -107,20 +149,18 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
           >
-            {loading ? "Criando conta..." : "Criar Conta"}
+            {loading ? "Criando..." : "Cadastrar"}
           </button>
         </form>
 
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Já tem uma conta?{' '}
-            <a href="/login" className="text-green-600 hover:text-green-800 font-medium">
-              Faça login
-            </a>
-          </p>
-        </div>
+        <p className="text-center text-sm text-gray-600 mt-4">
+          Já tem conta?{" "}
+          <a href="/login" className="text-green-600 hover:underline">
+            Faça login
+          </a>
+        </p>
       </div>
     </div>
   );
