@@ -47,6 +47,8 @@ const CATEGORIES = [
   "Outros",
 ];
 
+const COLORS = ["#4caf50", "#ff9800", "#2196f3", "#9c27b0", "#ff5722", "#607d8b", "#795548"];
+
 const Dashboard = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,8 @@ const Dashboard = () => {
     tipo: "receita",
     categoria: "Outros",
     data: new Date().toISOString().split("T")[0],
+    descricao: "",
+    valor: 0,
   });
 
   // Load user transactions
@@ -100,30 +104,49 @@ const Dashboard = () => {
         .reduce((s, t) => s + t.valor, 0) || 0,
   })).filter((d) => d.value > 0);
 
-  const COLORS = ["#4caf50", "#ff9800", "#2196f3", "#9c27b0", "#ff5722", "#607d8b", "#795548"];
-
   // Add new transaction
   const handleAdd = async () => {
-    if (!newTx.descricao || !newTx.valor || !newTx.tipo || !newTx.categoria || !newTx.data) {
-      toast.error("Preencha todos os campos");
+    // Validate required fields
+    if (
+      !newTx.descricao?.trim() ||
+      newTx.valor <= 0 ||
+      !newTx.tipo ||
+      !newTx.categoria ||
+      !newTx.data
+    ) {
+      toast.error("Preencha todos os campos corretamente");
       return;
     }
 
-    const { error } = await supabase.from("transactions").insert({
-      descricao: newTx.descricao,
-      valor: Number(newTx.valor),
-      tipo: newTx.tipo,
-      categoria: newTx.categoria,
-      data: newTx.data,
-    });
+    try {
+      const { error } = await supabase.from("transactions").insert({
+        descricao: newTx.descricao.trim(),
+        valor: Number(newTx.valor),
+        tipo: newTx.tipo,
+        categoria: newTx.categoria,
+        data: newTx.data,
+      });
 
-    if (error) {
-      toast.error("Erro ao salvar lançamento");
-    } else {
-      toast.success("Lançamento adicionado");
+      if (error) {
+        toast.error("Erro ao salvar lançamento");
+        console.error("Supabase insert error:", error);
+        return;
+      }
+
+      toast.success("Lançamento adicionado com sucesso");
       setShowAdd(false);
-      setNewTx({ tipo: "receita", categoria: "Outros", data: new Date().toISOString().split("T")[0] });
+      // Reset form
+      setNewTx({
+        tipo: "receita",
+        categoria: "Outros",
+        data: new Date().toISOString().split("T")[0],
+        descricao: "",
+        valor: 0,
+      });
       fetchTransactions();
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro inesperado ao salvar");
+      console.error("Unexpected error:", err);
     }
   };
 
@@ -234,16 +257,19 @@ const Dashboard = () => {
               placeholder="Descrição"
               value={newTx.descricao || ""}
               onChange={(e) => setNewTx({ ...newTx, descricao: e.target.value })}
+              disabled={loading}
             />
             <Input
               type="number"
               placeholder="Valor"
               value={newTx.valor?.toString() || ""}
               onChange={(e) => setNewTx({ ...newTx, valor: Number(e.target.value) })}
+              disabled={loading}
             />
             <Select
               value={newTx.tipo}
               onValueChange={(v) => setNewTx({ ...newTx, tipo: v as "receita" | "despesa" })}
+              disabled={loading}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Tipo" />
@@ -257,6 +283,7 @@ const Dashboard = () => {
             <Select
               value={newTx.categoria}
               onValueChange={(v) => setNewTx({ ...newTx, categoria: v })}
+              disabled={loading}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Categoria" />
@@ -274,6 +301,7 @@ const Dashboard = () => {
               type="date"
               value={newTx.data?.toString() || ""}
               onChange={(e) => setNewTx({ ...newTx, data: e.target.value })}
+              disabled={loading}
             />
 
             <div className="flex justify-end space-x-2">
