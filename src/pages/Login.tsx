@@ -11,7 +11,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
@@ -25,7 +25,7 @@ const Login = () => {
         toast.error(error.message);
       } else {
         toast.success("Login realizado com sucesso!");
-        navigate("/home");
+        navigate("/dashboard", { replace: true });
       }
     } catch (error) {
       toast.error("Ocorreu um erro durante o login");
@@ -39,7 +39,7 @@ const Login = () => {
       <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo de volta!</h1>
-          <p className="text-gray-600">Faça login para acessar sua conta</p>
+          <p className="text-gray-600">Faça login para acessar seu dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
