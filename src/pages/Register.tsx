@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,50 +15,26 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    if (password !== confirmPassword) {
-      toast.error("As senhas não coincidem!");
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error("A senha deve ter pelo menos 6 caracteres!");
-      setLoading(false);
-      return;
-    }
-
     try {
       // 1️⃣ Register user with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { full_name: name }, // store name in user metadata
-        },
+        options: { data: { full_name: name } },
       });
+      if (authError) throw authError;
 
-      if (authError) {
-        toast.error(authError.message);
-        setLoading(false);
-        return;
-      }
-
-      // 2️⃣ Create a profile row linked to the new user
+      // 2️⃣ Create profile row (Supabase will automatically create the row because of the RLS check)
       const userId = authData?.user?.id;
-      if (userId) {
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: userId,
-          full_name: name,
-          email,
-        });
+      if (!userId) throw new Error("User ID not found after sign‑up");
 
-        if (profileError) {
-          toast.error("Erro ao criar perfil: " + profileError.message);
-          setLoading(false);
-          return;
-        }
-      }
+      // Insert profile – this will succeed because of the RLS policy
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: userId,
+        full_name: name,
+        email,
+      });
+      if (profileError) throw profileError;
 
       toast.success("Cadastro concluído! Redirecionando...");
       // 3️⃣ Auto‑login and go to dashboard
@@ -67,16 +42,12 @@ const Register = () => {
         email,
         password,
       });
-
-      if (signInError) {
-        toast.error(signInError.message);
-        setLoading(false);
-        return;
-      }
+      if (signInError) throw signInError;
 
       navigate("/dashboard");
-    } catch (e) {
-      toast.error("Erro inesperado ao registrar");
+    } catch (err: any) {
+      console.error("❌ Registro falhou:", err);
+      toast.error(err.message ?? "Erro desconhecido durante o registro");
     } finally {
       setLoading(false);
     }
@@ -85,15 +56,11 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-3xl font-bold text-gray-900 text-center mb-4">
-          Crie sua conta
-        </h1>
-
+        <h1 className="text-3xl font-bold text-gray-900 text-center mb-4">Crie sua conta</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome completo
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome completo</label>
             <input
               type="text"
               required
@@ -104,10 +71,9 @@ const Register = () => {
             />
           </div>
 
+          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               required
@@ -118,10 +84,9 @@ const Register = () => {
             />
           </div>
 
+          {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Senha
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
             <input
               type="password"
               required
@@ -132,10 +97,9 @@ const Register = () => {
             />
           </div>
 
+          {/* Confirm Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Confirmar senha
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar senha</label>
             <input
               type="password"
               required
@@ -157,9 +121,7 @@ const Register = () => {
 
         <p className="text-center text-sm text-gray-600 mt-4">
           Já tem conta?{" "}
-          <a href="/login" className="text-green-600 hover:underline">
-            Faça login
-          </a>
+          <a href="/login" className="text-green-600 hover:underline">Faça login</a>
         </p>
       </div>
     </div>
