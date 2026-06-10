@@ -17,8 +17,8 @@ const Register = () => {
     console.error(`[REGISTRO] ${context}`, error);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setLoading(true);
 
     if (password !== confirmPassword) {
@@ -28,7 +28,7 @@ const Register = () => {
     }
 
     try {
-      // 1. Create user in Supabase Auth
+      // 1️⃣ Sign up user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -46,45 +46,49 @@ const Register = () => {
         return;
       }
 
-      const userId = authData.user?.id;
-
+      const userId = authData?.user?.id;
       if (!userId) {
-        const message = "Usuário criado no Auth, mas nenhum ID foi retornado.";
-        logError(message, authData);
-        toast.error(message);
+        const msg = "ID do usuário não encontrado após signUp.";
+        logError(msg, authData);
+        toast.error(msg);
         return;
       }
 
-      // 2. Create profile row after signUp
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        nome,
-        email,
-      });
+      // 2️⃣ Upsert profile row (creates if not exists, updates if exists)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: userId,
+            nome,
+            email,
+          },
+          { onConflict: "id" }
+        );
 
       if (profileError) {
-        logError("Erro ao criar perfil na tabela profiles", profileError);
-        toast.error(`Erro ao criar perfil: ${profileError.message}`);
+        logError("Erro ao fazer upsert do perfil", profileError);
+        toast.error(`Erro ao criar/atualizar perfil: ${profileError.message}`);
         return;
       }
 
-      // 3. Sign in automatically
+      // 3️⃣ Auto‑login the new user
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) {
-        logError("Erro ao realizar login automático", signInError);
-        toast.error(`Cadastro realizado, mas erro ao entrar: ${signInError.message}`);
+        logError("Erro no login automático", signInError);
+        toast.error(`Cadastro concluído, mas falha ao entrar: ${signInError.message}`);
         return;
       }
 
-      toast.success("Cadastro realizado com sucesso!");
+      toast.success("Cadastro concluído! Redirecionando...");
       navigate("/dashboard", { replace: true });
-    } catch (error) {
-      logError("Erro inesperado no cadastro", error);
-      toast.error("Erro inesperado durante o cadastro. Veja o console para detalhes.");
+    } catch (err: any) {
+      logError("Erro inesperado", err);
+      toast.error(err.message ?? "Erro inesperado durante o cadastro");
     } finally {
       setLoading(false);
     }
@@ -93,72 +97,66 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Crie sua conta
-          </h1>
-          <p className="text-gray-600">
-            Cadastre-se para acessar seu dashboard financeiro
-          </p>
-        </div>
-
+        <h1 className="text-3xl font-bold text-gray-900 text-center mb-4">
+          Crie sua conta
+        </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nome */}
           <div>
-            <label htmlFor="nome" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Nome
             </label>
             <input
-              id="nome"
               type="text"
               required
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={nome}
-              onChange={(event) => setNome(event.target.value)}
+              onChange={(e) => setNome(e.target.value)}
               disabled={loading}
             />
           </div>
 
+          {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
             <input
-              id="email"
               type="email"
               required
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
             />
           </div>
 
+          {/* Senha */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Senha
             </label>
             <input
-              id="password"
               type="password"
               required
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
             />
           </div>
 
+          {/* Confirmar Senha */}
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Confirmar senha
             </label>
             <input
-              id="confirmPassword"
               type="password"
               required
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={loading}
             />
           </div>
@@ -172,7 +170,7 @@ const Register = () => {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-600">
+        <p className="text-center text-sm text-gray-600 mt-4">
           Já tem conta?{" "}
           <a href="/login" className="text-green-600 hover:underline font-medium">
             Faça login
