@@ -1,181 +1,117 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from "@/components/ui";
-
-type Task = {
-  id: string;
-  title: string;
-  description: string | null;
-  user_id: string;
-};
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
 
 const Dashboard = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({ title: "", description: "" });
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState(null);
 
-  // Get current user
+  // Get current user from Supabase
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        toast.error("Erro ao obter usuário");
-        console.error(error);
-        setLoading(false);
-        return;
-      }
-      setUser(data.user);
-      setLoading(false);
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
     };
-    fetchUser();
+    getUser();
   }, []);
 
-  // Fetch tasks for the logged‑in user
-  const fetchTasks = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        toast.error("Erro ao carregar tarefas");
-        console.error(error);
-        return;
+  // Fetch tasks for current user
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const { data } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("user_id", user?.id);
+        setTasks(data);
+      } catch (error) {
+        toast.error("Failed to load tasks");
+        console.error("Supabase error:", error);
       }
-      setTasks(data as Task[]);
-    } catch (err) {
-      toast.error("Erro inesperado ao buscar tarefas");
-      console.error(err);
-    }
+    };
+    fetchTasks();
   }, [user?.id]);
 
-  // Load tasks when user becomes available
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  // Save new task
+  // Handle task creation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTask.title.trim() || !user?.id) return;
+    if (!newTask.title.trim()) return;
 
-    setSaving(true);
     try {
-      const { error } = await supabase.from("tasks").insert({
-        title: newTask.title.trim(),
-        description: newTask.description?.trim() || null,
-        user_id: user.id,
-      });
+      const { error } = await supabase
+        .from("tasks")
+        .insert({
+          title: newTask.title,
+          description: newTask.description,
+          user_id: user?.id,
+        });
 
       if (error) {
-        toast.error("Falha ao salvar tarefa");
-        console.error(error);
+        toast.error("Failed to save task");
+        console.error("Supabase error:", error);
       } else {
-        toast.success("Tarefa criada");
+        toast.success("Task saved successfully");
         setNewTask({ title: "", description: "" });
-        await fetchTasks(); // refresh list
+        fetchTasks(); // Refresh tasks
       }
-    } catch (err) {
-      toast.error("Erro ao salvar tarefa");
-      console.error(err);
-    } finally {
-      setSaving(false);
+    } catch (error) {
+      toast.error("An error occurred");
+      console.error("Unexpected error:", error);
     }
   };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Logout realizado");
-    window.location.href = "/login";
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-600">Carregando...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-3xl mx-auto">
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-2xl">
-              Bem‑vindo, {user?.email || "Usuário"}!
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <Button onClick={() => setNewTask({ title: "", description: "" })}>
-                Nova Tarefa
-              </Button>
-              <Button variant="outline" onClick={handleLogout}>
-                Sair
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">
+            {user?.name || "User"}
+          </h1>
+        </div>
 
-        {/* New task form */}
-        <form onSubmit={handleSubmit} className="space-y-4 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <Button onClick={() => setNewTask({ title: "", description: "" })}>New Task</Button>
+          <Button variant="outline" onClick={() => window.location.href = "/login"}>
+            Logout
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            placeholder="Título da tarefa"
+            placeholder="Task title"
             value={newTask.title}
-            onChange={(e) =>
-              setNewTask({ ...newTask, title: e.target.value })
-            }
-            disabled={saving}
+            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
             required
           />
           <Input
-            placeholder="Descrição (opcional)"
+            placeholder="Description (optional)"
             value={newTask.description}
-            onChange={(e) =>
-              setNewTask({ ...newTask, description: e.target.value })
-            }
-            disabled={saving}
+            onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
           />
-          <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700">
-            {saving ? "Salvando…" : "Salvar"}
+
+          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+            Save
           </Button>
         </form>
 
-        {/* Task list */}
-        {tasks.length === 0 ? (
-          <p className="text-center text-gray-600">Nenhuma tarefa encontrada.</p>
-        ) : (
-          <div className="space-y-4">
-            {tasks.map((task) => (
-              <Card key={task.id} className="bg-white shadow">
-                <CardHeader>
-                  <CardTitle>{task.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700">
-                    {task.description || "Sem descrição"}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        <div className="mt-8">
+          {tasks.length === 0 ? (
+            <p className="text-center text-gray-600">No tasks found</p>
+          ) : (
+            <div className="space-y-4">
+              {tasks.map((task) => (
+                <div key={task.id} className="p-3 border-b border-gray-200">
+                  <h2 className="text-xl font-bold">{task.title}</h2>
+                  <p className="text-gray-600">{task.description || "No description"}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
