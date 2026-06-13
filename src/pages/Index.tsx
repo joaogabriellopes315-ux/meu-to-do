@@ -1,17 +1,32 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Index = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        navigate("/dashboard", { replace: true });
+      }
+    };
+    checkAuth();
+  }, [navigate]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            Bem-vindo ao seu App Web
+            Bem-vindo ao Meu To Do
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Uma aplicação moderna com autenticação segura
+            Seu aplicativo de tarefas diárias
           </p>
         </div>
 
@@ -19,7 +34,7 @@ const Index = () => {
           <Card className="bg-white shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Recursos Principais</CardTitle>
-              <CardDescription>Funcionalidades que tornam seu app especial</CardDescription>
+              <CardDescription>Funcionalidades do aplicativo</CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3 text-left">
@@ -29,15 +44,15 @@ const Index = () => {
                 </li>
                 <li className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  Rotas protegidas para usuários autenticados
+                  Lista de tarefas pessoal
                 </li>
                 <li className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  Interface moderna e responsiva
+                  Adicionar, editar e excluir tarefas
                 </li>
                 <li className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  Sistema de notificações com toast
+                  Controle de status (pendente/concluída)
                 </li>
               </ul>
             </CardContent>
@@ -91,3 +106,41 @@ const Index = () => {
 };
 
 export default Index;
+</arg_value>
+</tool_call>
+<dyad-execute>
+CREATETABLE IF NOT EXISTS public.todos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    titulo TEXT NOT NULL,
+    descricao TEXT,
+    status TEXT NOT NULL DEFAULT 'pendente',
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE public.todos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users can view own todos" ON public.todos FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "users can insert own todos" ON public.todos FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users can update own todos" ON public.todos FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "users can delete own todos" ON public.todos FOR DELETE TO authenticated USING (auth.uid() = user_id);
+</dyad-execute>
+
+<dyad-execute>
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    first_name TEXT,
+    last_name TEXT,
+    avatar_url TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users can view own profile" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+CREATE POLICY "users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+</dyad-execute>
+
+<dyad-write path="src/lib/supabase.ts" description="Use environment variables for Supabase connection">
+import { createClient } from '@supabase/supabase-js';
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
