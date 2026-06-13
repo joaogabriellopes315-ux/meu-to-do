@@ -7,6 +7,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import {
   Button,
@@ -14,13 +15,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Plus, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { formatCurrency } from "@/lib/format";
 
 type Task = {
   id: string;
@@ -31,30 +29,22 @@ type Task = {
 const Home = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [user] = supabase.auth.user();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Get current user
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-  }, []);
-
   // Load tasks for current user
   const fetchTasks = async () => {
+    setLoading(true);
     if (!user) {
       setLoading(false);
       return;
     }
-
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("tasks")
+    const { data, error } = await supabase      .from("tasks")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -73,23 +63,30 @@ const Home = () => {
 
   // Add new task
   const handleAddTask = async () => {
-    if (!newTitle.trim() || !user) return;
+    if (!newTitle.trim()) {
+      setError("A tarefa precisa ter um título");
+      return;
+    }
 
-    setSubmitting(true);
-    const { error } = await supabase.from("tasks").insert({
-      title: newTitle.trim(),
-      user_id: user.id,
-    });
+    try {
+      const { data, error } = await supabase.from("tasks").insert({
+        title: newTitle.trim(),
+        user_id: user.id,
+      });
 
-    if (error) {
-      toast.error("Erro ao salvar tarefa");
-    } else {
+      if (error) {
+        toast.error("Erro ao salvar tarefa");
+        console.error("Supabase insert error:", error);
+        return;
+      }
+
       toast.success("Tarefa adicionada com sucesso");
       setNewTitle("");
-      setShowAddDialog(false);
-      fetchTasks();
+      setSuccess("Tarefa adicionada");
+      fetchTasks(); // Refresh tasks    } catch (err: any) {
+      toast.error(err.message ?? "Erro inesperado");
+      console.error("Unexpected error:", err);
     }
-    setSubmitting(false);
   };
 
   // Logout
@@ -99,77 +96,72 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Minhas Tarefas</h1>
-          <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2">
-            <LogOut size={16} />
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Minhas Tarefas</h1>
+        <div className="space-x-2">
+          <Button variant="outline" onClick={handleLogout}>
             Sair
           </Button>
         </div>
-
-        {/* Add Task Button */}
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="w-full mb-6 flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-              <Plus size={18} />
-              Adicionar Nova Tarefa
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Tarefa</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Título da tarefa</Label>
-                <Input
-                  id="title"
-                  placeholder="Digite o título da tarefa"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowAddDialog(false)} disabled={submitting}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleAddTask} disabled={submitting || !newTitle.trim()}>
-                  {submitting ? "Salvando..." : "Salvar"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Tasks List */}
-        <div className="space-y-3">
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">Carregando tarefas...</div>
-          ) : tasks.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">Nenhuma tarefa cadastrada</p>
-                <p className="text-sm text-gray-400 mt-2">Clique no botão acima para adicionar sua primeira tarefa</p>
-              </CardContent>
-            </Card>
-          ) : (
-            tasks.map((task) => (
-              <Card key={task.id} className="bg-white shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <p className="font-medium text-gray-800">{task.title}</p>
-                  <p className="text-xs text-gray-400 mt-2">
-                    {new Date(task.created_at).toLocaleString('pt-BR')}
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
       </div>
+
+      {/* Tasks List */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Carregando...</div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {success && (
+              <p className="text-green-600 font-medium mb-2">
+                {success}
+              </p>
+            )}
+            Nenhuma tarefa cadastrada. Adicione uma nova tarefa abaixo.
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-200">
+            {tasks.map((task) => (
+              <li key={task.id} className="py-2">
+                <Card className="bg-white shadow-sm">
+                  <CardContent>
+                    <p className="text-sm text-gray-600">{task.title}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(task.created_at).toLocaleString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Add Task Dialog */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar Nova Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <input
+              type="text"
+              placeholder="Título da tarefa"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              disabled={loading}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+            <div className="flex justify-end space-x-2 mt-2">
+              <Button variant="outline" onClick={() => setShowAdd(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleAddTask}>Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
