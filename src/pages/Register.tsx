@@ -1,182 +1,224 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Lock, Mail, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Register = () => {
+  const navigate = useNavigate();
+
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  const logError = (context: string, error: unknown) => {
-    console.error(`[REGISTRO] ${context}`, error);
-  };
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+      if (user) {
+        navigate("/dashboard", { replace: true });
+      }
+
+      setCheckingSession(false);
+    };
+
+    void checkSession();
+  }, [navigate]);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
     if (password !== confirmPassword) {
       toast.error("As senhas não coincidem.");
+      return;
+    }
+
+    setLoading(true);
+
+    const {
+      data: authData,
+      error: authError,
+    } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          nome,
+          email,
+        },
+      },
+    });
+
+    if (authError) {
+      toast.error(`Erro no cadastro: ${authError.message}`);
       setLoading(false);
       return;
     }
 
-    try {
-      // 1️⃣ Sign up user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nome,
-            email,
-          },
-        },
-      });
+    const userId = authData.user?.id;
 
-      if (authError) {
-        logError("Erro no signUp", authError);
-        toast.error(`Erro no cadastro: ${authError.message}`);
-        return;
-      }
-
-      const userId = authData?.user?.id;
-      if (!userId) {
-        const msg = "ID do usuário não encontrado após signUp.";
-        logError(msg, authData);
-        toast.error(msg);
-        return;
-      }
-
-      // 2️⃣ Upsert profile row (creates if not exists, updates if exists)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            id: userId,
-            nome,
-            email,
-          },
-          { onConflict: "id" }
-        );
-
-      if (profileError) {
-        logError("Erro ao fazer upsert do perfil", profileError);
-        toast.error(`Erro ao criar/atualizar perfil: ${profileError.message}`);
-        return;
-      }
-
-      // 3️⃣ Auto‑login the new user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        logError("Erro no login automático", signInError);
-        toast.error(`Cadastro concluído, mas falha ao entrar: ${signInError.message}`);
-        return;
-      }
-
-      toast.success("Cadastro concluído! Redirecionando...");
-      navigate("/dashboard", { replace: true });
-    } catch (err: any) {
-      logError("Erro inesperado", err);
-      toast.error(err.message ?? "Erro inesperado durante o cadastro");
-    } finally {
+    if (!userId) {
+      toast.error("Não foi possível identificar o usuário criado.");
       setLoading(false);
+      return;
     }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          nome,
+          email,
+        },
+        { onConflict: "id" }
+      );
+
+    if (profileError) {
+      toast.error("Cadastro realizado, mas não foi possível salvar o perfil.");
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      toast.error(
+        "Cadastro realizado, mas não foi possível entrar automaticamente. Verifique seu e-mail ou tente fazer login.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    toast.success("Cadastro concluído! Redirecionando para o Dashboard.");
+    navigate("/dashboard", { replace: true });
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-      <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-3xl font-bold text-gray-900 text-center mb-4">
-          Crie sua conta
-        </h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          {/* Senha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Senha
-            </label>
-            <input
-              type="password"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          {/* Confirmar Senha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Confirmar senha
-            </label>
-            <input
-              type="password"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-60"
-          >
-            {loading ? "Criando..." : "Cadastrar"}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Já tem conta?{" "}
-          <a href="/login" className="text-green-600 hover:underline font-medium">
-            Faça login
-          </a>
-        </p>
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+          <p className="text-slate-600">Verificando sessão...</p>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Criar conta</CardTitle>
+          <CardDescription>
+            Cadastre-se para acessar seu Dashboard.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  id="nome"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={nome}
+                  onChange={(event) => setNome(event.target.value)}
+                  className="pl-9"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="pl-9"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="pl-9"
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar senha</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Repita sua senha"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="pl-9"
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Criando conta..." : "Cadastrar"}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Já tem conta?{" "}
+            <a
+              href="/login"
+              className="font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              Faça login
+            </a>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
