@@ -1,318 +1,191 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { LogOut, PlusCircle, UserCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/format";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { TodoForm } from "@/components/TodoForm";
+import { TodoList } from "@/components/TodoList";
 
-type Transaction = {
+type Task = {
   id: string;
-  descricao: string;
-  valor: number;
-  tipo: "receita" | "despesa";
-  categoria: string;
-  data: string; // ISO date
+  title: string;
+  created_at: string;
 };
 
-const CATEGORIES = [
-  "Alimentação",
-  "Transporte",
-  "Moradia",
-  "Saúde",
-  "Educação",
-  "Lazer",
-  "Outros",
-];
-
-const COLORS = ["#4caf50", "#ff9800", "#2196f3", "#9c27b0", "#ff5722", "#607d8b", "#795548"];
+type Profile = {
+  nome?: string | null;
+  email?: string | null;
+};
 
 const Dashboard = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const navigate = useNavigate();
+
+  const [userId, setUserId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("Usuário");
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newTx, setNewTx] = useState<Partial<Transaction>>({
-    tipo: "receita",
-    categoria: "Outros",
-    data: new Date().toISOString().split("T")[0],
-    descricao: "",
-    valor: 0,
-  });
+  const [error, setError] = useState("");
 
-  // Load user transactions
-  const fetchTransactions = async () => {
+  const refreshTasks = async (ownerId: string) => {
+    if (!ownerId) return;
+
     setLoading(true);
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("data", { ascending: false });
+    setError("");
 
-    if (error) {
-      toast.error("Erro ao carregar lançamentos");
-    } else {
-      setTransactions(data as Transaction[]);
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", ownerId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        setError("Erro ao carregar tarefas: " + error.message);
+      } else {
+        setTasks(data ?? []);
+      }
+    } catch (err) {
+      setError("Erro crítico: " + (err.message || "Falha desconhecida"));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    let isActive = true;
 
-  // Totals
-  const totalIncome = transactions
-    .filter((t) => t.tipo === "receita")
-    .reduce((sum, t) => sum + t.valor, 0);
-  const totalExpense = transactions
-    .filter((t) => t.tipo === "despesa")
-    .reduce((sum, t) => sum + t.valor, 0);
-  const balance = totalIncome - totalExpense;
+    const loadInitialData = async () => {
+      if (!isActive) return;
 
-  // Chart data
-  const incomeExpenseData = [
-    { name: "Receita", value: totalIncome },
-    { name: "Despesa", value: totalExpense },
-  ];
+      setError("");
 
-  const expenseByCategory = CATEGORIES.map((cat) => ({
-    name: cat,
-    value:
-      transactions
-        .filter((t) => t.tipo === "despesa" && t.categoria === cat)
-        .reduce((s, t) => s + t.valor, 0) || 0,
-  })).filter((d) => d.value > 0);
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-  // Add new transaction
-  const handleAdd = async () => {
-    // Validate required fields
-    if (
-      !newTx.descricao?.trim() ||
-      newTx.valor <= 0 ||
-      !newTx.tipo ||
-      !newTx.categoria ||
-      !newTx.data
-    ) {
-      toast.error("Preencha todos os campos corretamente");
-      return;
-    }
+      if (userError || !user) {
+        if (isActive) {
+          navigate("/login", { replace: true });
+        }
 
-    try {
-      const { error } = await supabase.from("transactions").insert({
-        descricao: newTx.descricao.trim(),
-        valor: Number(newTx.valor),
-        tipo: newTx.tipo,
-        categoria: newTx.categoria,
-        data: newTx.data,
-      });
-
-      if (error) {
-        toast.error("Erro ao salvar lançamento");
-        console.error("Supabase insert error:", error);
         return;
       }
 
-      toast.success("Lançamento adicionado com sucesso");
-      setShowAdd(false);
-      // Reset form
-      setNewTx({
-        tipo: "receita",
-        categoria: "Outros",
-        data: new Date().toISOString().split("T")[0],
-        descricao: "",
-        valor: 0,
-      });
-      fetchTransactions();
-    } catch (err: any) {
-      toast.error(err.message ?? "Erro inesperado ao salvar");
-      console.error("Unexpected error:", err);
-    }
+      const { data: profile } = (await supabase
+        .from("profiles")
+        .select("nome,email")
+        .eq("id", user.id)
+        .maybeSingle()) as { data: Profile | null };
+
+      const { data: tasksData, error: tasksError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (isActive) {
+        setUserId(user.id);
+        setDisplayName(profile?.nome || user.email?.split("@")[0] || "Usuário");
+
+        if (tasksError) {
+          setError("Erro ao carregar tarefas: " + tasksError.message);
+        } else {
+          setTasks(tasksData ?? []);
+        }
+      }
+    };
+
+    void loadInitialData();
+
+    return () => {
+      isActive = false;
+    };
+  }, [navigate]);
+
+  const handleCreateTaskClick = () => {
+    document.getElementById("nova-tarefa")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   };
 
-  // Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success("Logout realizado");
-    window.location.href = "/login";
+    toast.success("Logout realizado com sucesso.");
+    navigate("/login", { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Dashboard Financeiro</h1>
-        <div className="space-x-2">
-          <Button onClick={() => setShowAdd(true)}>+ Novo Lançamento</Button>
-          <Button variant="outline" onClick={handleLogout}>
-            Sair
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10">
+        <header className="mb-6 flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+              <UserCircle className="h-7 w-7" />
+            </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-white shadow">
-          <CardHeader>
-            <CardTitle>Saldo Atual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{formatCurrency(balance)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow">
-          <CardHeader>
-            <CardTitle>Total de Receitas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-green-600">{formatCurrency(totalIncome)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow">
-          <CardHeader>
-            <CardTitle>Total de Despesas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-red-600">{formatCurrency(totalExpense)}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white shadow p-4">
-          <CardHeader>
-            <CardTitle>Receitas vs Despesas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={incomeExpenseData} layout="vertical">
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" />
-                <Tooltip formatter={(v) => formatCurrency(v as number)} />
-                <Bar dataKey="value" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow p-4">
-          <CardHeader>
-            <CardTitle>Despesas por Categoria</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {expenseByCategory.length === 0 ? (
-              <p className="text-center text-gray-500">Nenhuma despesa registrada</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={expenseByCategory}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={80}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  >
-                    {expenseByCategory.map((_, i) => (
-                      <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => formatCurrency(v as number)} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Add Transaction Dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Lançamento</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <Input
-              placeholder="Descrição"
-              value={newTx.descricao || ""}
-              onChange={(e) => setNewTx({ ...newTx, descricao: e.target.value })}
-              disabled={loading}
-            />
-            <Input
-              type="number"
-              placeholder="Valor"
-              value={newTx.valor?.toString() || ""}
-              onChange={(e) => setNewTx({ ...newTx, valor: Number(e.target.value) })}
-              disabled={loading}
-            />
-            <Select
-              value={newTx.tipo}
-              onValueChange={(v) => setNewTx({ ...newTx, tipo: v as "receita" | "despesa" })}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="despesa">Despesa</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={newTx.categoria}
-              onValueChange={(v) => setNewTx({ ...newTx, categoria: v })}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Input
-              type="date"
-              value={newTx.data?.toString() || ""}
-              onChange={(e) => setNewTx({ ...newTx, data: e.target.value })}
-              disabled={loading}
-            />
-
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAdd(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleAdd}>Salvar</Button>
+            <div>
+              <p className="text-sm font-medium text-slate-500">Meu To Do</p>
+              <h1 className="text-2xl font-bold text-slate-950">
+                Olá, {displayName}
+              </h1>
+              <p className="text-sm text-slate-500">
+                Organize suas tarefas do dia.
+              </p>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleCreateTaskClick}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Criar nova tarefa
+            </Button>
+
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair
+            </Button>
+          </div>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+          {userId ? (
+            <TodoForm
+              userId={userId}
+              onTaskCreated={() => refreshTasks(userId)}
+            />
+          ) : (
+            <Card>
+              <CardContent className="py-6 text-center text-slate-500">
+                {error ? (
+                  <div className="text-sm text-red-500">
+                    {error}
+                  </div>
+                ) : (
+                  "Carregando usuário..."
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <TodoList
+            tasks={tasks}
+            loading={loading}
+            onRefresh={() => (userId ? refreshTasks(userId) : Promise.resolve())}
+          />
+        </div>
+      </div>
     </div>
   );
 };
