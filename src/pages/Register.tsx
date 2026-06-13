@@ -3,21 +3,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-
 const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
         toast.error(error.message);
       } else {
@@ -30,55 +25,29 @@ const Register = () => {
       setLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Criar conta</CardTitle>
-          <CardDescription>Preencha os campos abaixo para começar</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-gray-700 block">Email</label>
-              <Input
-                id="email"
-                type="email"
-                required
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium text-gray-700 block">Senha</label>
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                placeholder="Mínimo 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading} size="lg">
-              {loading ? "Cadastrando..." : "Cadastrar"}
-            </Button>
-          </form>
-          <p className="text-center text-sm text-gray-600 mt-4">
-            Já tem uma conta?{" "}
-            <a href="/login" className="text-blue-600 hover:text-blue-800 font-medium">
-              Entrar
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Criar conta</h1>
+          <p className="text-gray-600">Preencha os campos abaixo para criar sua conta</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2"> Email </label>
+            <input id="email" type="email" required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2"> Senha </label>
+            <input id="password" type="password" required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
+          </div>
+          <button type="submit" disabled={loading} className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed" > {loading ? "Cadastrando..." : "Cadastrar"} </button>
+        </form>
+        <div className="text-center">
+          <p className="text-sm text-gray-600">Já tem uma conta? <a href="/login" className="text-blue-600 hover:text-blue-800 font-medium"> Entrar </a> </p>
+        </div>
+      </div>
     </div>
   );
 };
-
 export default Register;

@@ -9,7 +9,6 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-
 const queryClient = new QueryClient();
 
 function App() {
