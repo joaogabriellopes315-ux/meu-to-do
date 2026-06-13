@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
 
 const Register = () => {
   const [email, setEmail] = useState("");
@@ -24,11 +23,8 @@ const Register = () => {
     });
     if (error) {
       setError(error.message);
-      toast.error(error.message);
     } else {
       setSuccess("Check your email for a confirmation link.");
-      toast.success("Registration successful! Please check your email.");
-      navigate("/dashboard", { replace: true });
     }
     setLoading(false);
   };
@@ -44,8 +40,7 @@ const Register = () => {
             <label className="block text-sm font-medium">Email</label>
             <input
               type="email"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Navigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
