@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -22,11 +21,9 @@ const Login = () => {
     });
     if (error) {
       setError(error.message);
-      toast.error(error.message);
       setLoading(false);
     } else {
-      toast.success("Login successful!");
-      navigate("/dashboard", { replace: true });
+      navigate("/home");
     }
   };
 
