@@ -1,319 +1,312 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/format";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
-
-type Transaction = {
-  id: string;
-  descricao: string;
-  valor: number;
-  tipo: "receita" | "despesa";
-  categoria: string;
-  data: string; // ISO date
-};
-
-const CATEGORIES = [
-  "Alimentação",
-  "Transporte",
-  "Moradia",
-  "Saúde",
-  "Educação",
-  "Lazer",
-  "Outros",
-];
-
-const COLORS = ["#4caf50", "#ff9800", "#2196f3", "#9c27b0", "#ff5722", "#607d8b", "#795548"];
+import { Separator } from "@/components/ui/separator";
+import { TaskForm } from "@/components/TaskForm";
+import { TaskList } from "@/components/TaskList";
+import type { Task } from "@/types/task";
+import { CheckCircle2, ListTodo, LogOut, PlusCircle } from "lucide-react";
 
 const Dashboard = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newTx, setNewTx] = useState<Partial<Transaction>>({
-    tipo: "receita",
-    categoria: "Outros",
-    data: new Date().toISOString().split("T")[0],
-    descricao: "",
-    valor: 0,
-  });
+  const navigate = useNavigate();
 
-  // Load user transactions
-  const fetchTransactions = async () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null);
+
+  const fetchTasks = useCallback(async () => {
     setLoading(true);
+
     const { data, error } = await supabase
-      .from("transactions")
+      .from("tasks")
       .select("*")
-      .order("data", { ascending: false });
+      .order("created_at", { ascending: false });
+
+    setLoading(false);
 
     if (error) {
-      toast.error("Erro ao carregar lançamentos");
-    } else {
-      setTransactions(data as Transaction[]);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
-
-  // Totals
-  const totalIncome = transactions
-    .filter((t) => t.tipo === "receita")
-    .reduce((sum, t) => sum + t.valor, 0);
-  const totalExpense = transactions
-    .filter((t) => t.tipo === "despesa")
-    .reduce((sum, t) => sum + t.valor, 0);
-  const balance = totalIncome - totalExpense;
-
-  // Chart data
-  const incomeExpenseData = [
-    { name: "Receita", value: totalIncome },
-    { name: "Despesa", value: totalExpense },
-  ];
-
-  const expenseByCategory = CATEGORIES.map((cat) => ({
-    name: cat,
-    value:
-      transactions
-        .filter((t) => t.tipo === "despesa" && t.categoria === cat)
-        .reduce((s, t) => s + t.valor, 0) || 0,
-  })).filter((d) => d.value > 0);
-
-  // Add new transaction
-  const handleAdd = async () => {
-    // Validate required fields
-    if (
-      !newTx.descricao?.trim() ||
-      newTx.valor <= 0 ||
-      !newTx.tipo ||
-      !newTx.categoria ||
-      !newTx.data
-    ) {
-      toast.error("Preencha todos os campos corretamente");
+      toast.error("Não foi possível carregar suas tarefas.");
       return;
     }
 
-    try {
-      const { error } = await supabase.from("transactions").insert({
-        descricao: newTx.descricao.trim(),
-        valor: Number(newTx.valor),
-        tipo: newTx.tipo,
-        categoria: newTx.categoria,
-        data: newTx.data,
-      });
+    setTasks(data ?? []);
+  }, []);
 
-      if (error) {
-        toast.error("Erro ao salvar lançamento");
-        console.error("Supabase insert error:", error);
-        return;
-      }
+  useEffect(() => {
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      toast.success("Lançamento adicionado com sucesso");
-      setShowAdd(false);
-      // Reset form
-      setNewTx({
-        tipo: "receita",
-        categoria: "Outros",
-        data: new Date().toISOString().split("T")[0],
-        descricao: "",
-        valor: 0,
-      });
-      fetchTransactions();
-    } catch (err: any) {
-      toast.error(err.message ?? "Erro inesperado ao salvar");
-      console.error("Unexpected error:", err);
+      setUser(user);
+    };
+
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchTasks();
     }
+  }, [fetchTasks, user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`tasks:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchTasks();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTasks, user]);
+
+  const stats = useMemo(() => {
+    return {
+      total: tasks.length,
+      editing: editingId ? "1 em edição" : "Nenhuma edição",
+      sync: user ? "Sincronizado" : "Aguardando login",
+    };
+  }, [editingId, tasks.length, user]);
+
+  const handleCreateTask = async (title: string) => {
+    if (!user) {
+      toast.error("Faça login para criar tarefas.");
+      return;
+    }
+
+    setSaving(true);
+
+    const { error } = await supabase.from("tasks").insert({
+      title,
+      user_id: user.id,
+    });
+
+    setSaving(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Tarefa adicionada com sucesso.");
+    await fetchTasks();
   };
 
-  // Logout
+  const startEdit = (task: Task) => {
+    setEditingId(task.id);
+    setEditingTitle(task.title);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingTitle("");
+  };
+
+  const handleSaveEdit = async (id: string, title: string) => {
+    const normalizedTitle = title.trim();
+
+    if (!normalizedTitle) {
+      toast.error("Digite um título para a tarefa.");
+      return;
+    }
+
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ title: normalizedTitle })
+      .eq("id", id);
+
+    setSaving(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setEditingId(null);
+    setEditingTitle("");
+    toast.success("Tarefa atualizada com sucesso.");
+    await fetchTasks();
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    setSaving(true);
+
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+
+    setSaving(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Tarefa removida com sucesso.");
+    await fetchTasks();
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success("Logout realizado");
-    window.location.href = "/login";
+    toast.success("Você saiu da conta.");
+    navigate("/login", { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Dashboard Financeiro</h1>
-        <div className="space-x-2">
-          <Button onClick={() => setShowAdd(true)}>+ Novo Lançamento</Button>
+    <main className="min-h-screen bg-slate-50">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
+              <ListTodo className="h-4 w-4" />
+              Meu To Do
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950">
+              Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {user?.email ?? "Organize suas tarefas com simplicidade."}
+            </p>
+          </div>
+
           <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
             Sair
           </Button>
-        </div>
-      </div>
+        </header>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-white shadow">
-          <CardHeader>
-            <CardTitle>Saldo Atual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{formatCurrency(balance)}</p>
-          </CardContent>
-        </Card>
+        <section className="grid gap-4 sm:grid-cols-3">
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Total de tarefas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-slate-950">{stats.total}</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-white shadow">
-          <CardHeader>
-            <CardTitle>Total de Receitas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-green-600">{formatCurrency(totalIncome)}</p>
-          </CardContent>
-        </Card>
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Edição ativa
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-slate-950">{stats.editing}</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-white shadow">
-          <CardHeader>
-            <CardTitle>Total de Despesas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-red-600">{formatCurrency(totalExpense)}</p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                <p className="text-2xl font-bold text-slate-950">{stats.sync}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white shadow p-4">
-          <CardHeader>
-            <CardTitle>Receitas vs Despesas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={incomeExpenseData} layout="vertical">
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" />
-                <Tooltip formatter={(v) => formatCurrency(v as number)} />
-                <Bar dataKey="value" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <Separator />
 
-        <Card className="bg-white shadow p-4">
-          <CardHeader>
-            <CardTitle>Despesas por Categoria</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {expenseByCategory.length === 0 ? (
-              <p className="text-center text-gray-500">Nenhuma despesa registrada</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={expenseByCategory}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={80}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  >
-                    {expenseByCategory.map((_, i) => (
-                      <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => formatCurrency(v as number)} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Add Transaction Dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Lançamento</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <Input
-              placeholder="Descrição"
-              value={newTx.descricao || ""}
-              onChange={(e) => setNewTx({ ...newTx, descricao: e.target.value })}
-              disabled={loading}
-            />
-            <Input
-              type="number"
-              placeholder="Valor"
-              value={newTx.valor?.toString() || ""}
-              onChange={(e) => setNewTx({ ...newTx, valor: Number(e.target.value) })}
-              disabled={loading}
-            />
-            <Select
-              value={newTx.tipo}
-              onValueChange={(v) => setNewTx({ ...newTx, tipo: v as "receita" | "despesa" })}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="despesa">Despesa</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={newTx.categoria}
-              onValueChange={(v) => setNewTx({ ...newTx, categoria: v })}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Input
-              type="date"
-              value={newTx.data?.toString() || ""}
-              onChange={(e) => setNewTx({ ...newTx, data: e.target.value })}
-              disabled={loading}
+        <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <div className="space-y-4">
+            <TaskForm
+              onSubmit={handleCreateTask}
+              loading={saving}
+              isEditing={Boolean(editingId)}
+              initialTitle={editingTitle}
+              onCancel={cancelEdit}
             />
 
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAdd(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleAdd}>Salvar</Button>
-            </div>
+            <Card className="border-slate-200 bg-white shadow-sm">
+              <CardHeader>
+                <CardTitle>Dicas rápidas</CardTitle>
+                <CardDescription>
+                  Mantenha suas tarefas objetivas e revise sua lista todos os dias.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-slate-600">
+                <p>• Use títulos curtos e específicos.</p>
+                <p>• Edite tarefas sempre que o contexto mudar.</p>
+                <p>• Remova itens concluídos ou que não fazem mais sentido.</p>
+              </CardContent>
+            </Card>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-950">
+                  Suas tarefas
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Crie, edite e remova tarefas em tempo real.
+                </p>
+              </div>
+
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => document.getElementById("task-title")?.focus()}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nova tarefa
+              </Button>
+            </div>
+
+            <TaskList
+              tasks={tasks}
+              loading={loading}
+              saving={saving}
+              editingId={editingId}
+              editingTitle={editingTitle}
+              onEditingTitleChange={setEditingTitle}
+              onStartEdit={startEdit}
+              onSaveEdit={handleSaveEdit}
+              onCancelEdit={cancelEdit}
+              onDelete={handleDeleteTask}
+            />
+          </div>
+        </section>
+      </div>
+    </main>
   );
 };
 

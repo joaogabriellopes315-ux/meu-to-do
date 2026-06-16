@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CheckCircle2 } from "lucide-react";
 
 const Register = () => {
   const [nome, setNome] = useState("");
@@ -13,171 +24,158 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const logError = (context: string, error: unknown) => {
-    console.error(`[REGISTRO] ${context}`, error);
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
     if (password !== confirmPassword) {
       toast.error("As senhas não coincidem.");
-      setLoading(false);
       return;
     }
 
-    try {
-      // 1️⃣ Sign up user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nome,
-            email,
-          },
+    if (password.length < 6) {
+      toast.error("A senha precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          nome,
+          email,
         },
-      });
+      },
+    });
 
-      if (authError) {
-        logError("Erro no signUp", authError);
-        toast.error(`Erro no cadastro: ${authError.message}`);
-        return;
-      }
+    if (authError) {
+      setLoading(false);
+      toast.error(authError.message);
+      return;
+    }
 
-      const userId = authData?.user?.id;
-      if (!userId) {
-        const msg = "ID do usuário não encontrado após signUp.";
-        logError(msg, authData);
-        toast.error(msg);
-        return;
-      }
+    const userId = data.user?.id;
 
-      // 2️⃣ Upsert profile row (creates if not exists, updates if exists)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            id: userId,
-            nome,
-            email,
-          },
-          { onConflict: "id" }
-        );
+    if (userId) {
+      const { error: profileError } = await supabase.from("profiles").upsert(
+        {
+          id: userId,
+          nome,
+          email,
+        },
+        { onConflict: "id" },
+      );
 
       if (profileError) {
-        logError("Erro ao fazer upsert do perfil", profileError);
-        toast.error(`Erro ao criar/atualizar perfil: ${profileError.message}`);
+        setLoading(false);
+        toast.error(profileError.message);
         return;
       }
-
-      // 3️⃣ Auto‑login the new user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        logError("Erro no login automático", signInError);
-        toast.error(`Cadastro concluído, mas falha ao entrar: ${signInError.message}`);
-        return;
-      }
-
-      toast.success("Cadastro concluído! Redirecionando...");
-      navigate("/dashboard", { replace: true });
-    } catch (err: any) {
-      logError("Erro inesperado", err);
-      toast.error(err.message ?? "Erro inesperado durante o cadastro");
-    } finally {
-      setLoading(false);
     }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setLoading(false);
+      toast.error(`Cadastro realizado, mas não foi possível entrar: ${signInError.message}`);
+      return;
+    }
+
+    toast.success("Cadastro concluído!");
+    navigate("/dashboard", { replace: true });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-      <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-3xl font-bold text-gray-900 text-center mb-4">
-          Crie sua conta
-        </h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              disabled={loading}
-            />
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+      <Card className="w-full max-w-md border-slate-200 bg-white shadow-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600">
+            <CheckCircle2 className="h-6 w-6 text-white" />
           </div>
+          <CardTitle className="text-2xl font-bold text-slate-950">
+            Crie sua conta
+          </CardTitle>
+          <CardDescription>
+            Comece a organizar suas tarefas em poucos segundos.
+          </CardDescription>
+        </CardHeader>
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome</Label>
+              <Input
+                id="nome"
+                value={nome}
+                onChange={(event) => setNome(event.target.value)}
+                placeholder="Seu nome"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu@email.com"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar senha</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Repita a senha"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
               disabled={loading}
-            />
-          </div>
+            >
+              {loading ? "Criando conta..." : "Cadastrar"}
+            </Button>
+          </form>
 
-          {/* Senha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Senha
-            </label>
-            <input
-              type="password"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          {/* Confirmar Senha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Confirmar senha
-            </label>
-            <input
-              type="password"
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-60"
-          >
-            {loading ? "Criando..." : "Cadastrar"}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Já tem conta?{" "}
-          <a href="/login" className="text-green-600 hover:underline font-medium">
-            Faça login
-          </a>
-        </p>
-      </div>
-    </div>
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Já tem conta?{" "}
+            <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
+              Faça login
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </main>
   );
 };
 

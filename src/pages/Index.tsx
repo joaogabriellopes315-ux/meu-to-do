@@ -1,248 +1,130 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { MadeWithDyad } from "@/components/made-with-dyad";
+import { CheckCircle2, Clock, ListTodo, Sparkles } from "lucide-react";
+
+const features = [
+  {
+    icon: ListTodo,
+    title: "Lista simples",
+    description: "Crie tarefas rapidamente e mantenha tudo organizado em um só lugar.",
+  },
+  {
+    icon: Clock,
+    title: "Atualização em tempo real",
+    description: "Alterações são refletidas na tela para acompanhar seu progresso.",
+  },
+  {
+    icon: Sparkles,
+    title: "Experiência limpa",
+    description: "Interface moderna, responsiva e fácil de usar em qualquer dispositivo.",
+  },
+];
 
 const Index = () => {
-  // States
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-
-  // Load user and tasks
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        const { data, error } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!error) {
-          setTasks(data);
-        } else {
-          toast.error("Erro ao carregar tarefas");
-        }
-      }
-      setLoading(false);
-    };
-    load();
-  }, []);
-
-  // Refresh tasks when user changes
-  useEffect(() => {
-    if (user) {
-      const fetchTasks = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (!error) {
-          setTasks(data);
-        } else {
-          toast.error("Erro ao atualizar tarefas");
-        }
-        setLoading(false);
-      };
-      fetchTasks();
-    }
-  }, [user]);
-
-  // Save (create or update) a task
-  const handleSave = async () => {
-    if (!newTaskTitle.trim() || !user) return;
-
-    try {
-      if (editingId) {
-        // Update existing task
-        const { error } = await supabase
-          .from("tasks")
-          .update({ title: newTaskTitle.trim() })
-          .eq("id", editingId);
-        if (error) throw error;
-        toast.success("Tarefa atualizada com sucesso");
-        setEditingId(null);
-      } else {
-        // Insert new task
-        const { error } = await supabase.from("tasks").insert({
-          title: newTaskTitle.trim(),
-          user_id: user.id,
-        });
-        if (error) throw error;
-        toast.success("Tarefa criada com sucesso");
-      }
-
-      // Refresh tasks list
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!error) setTasks(data);
-      setNewTaskTitle("");
-    } catch (error: any) {
-      toast.error(error.message ?? "Erro ao salvar tarefa");
-    }
-  };
-
-  // Start editing a task
-  const startEdit = (task: any) => {
-    setEditingId(task.id);
-    setEditingTitle(task.title);
-  };
-
-  // Cancel editing
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditingTitle("");
-  };
-
-  // Delete a task
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase.from("tasks").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Tarefa removida");
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!error) setTasks(data);
-    } catch (error: any) {
-      toast.error(error.message ?? "Erro ao excluir tarefa");
-    }
-  };
-
-  // Render each task item
-  const renderTask = (task: any) => {
-    const isEditing = editingId === task.id;
-    return (
-      <Card key={task.id} className="bg-white shadow-sm mb-2 rounded-lg overflow-hidden">
-        <CardContent className="p-3">
-          {isEditing ? (
-            <input
-              type="text"
-              value={editingTitle}
-              onChange={(e) => setEditingTitle(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-            />
-          ) : (
-            <>
-              <p className="text-lg font-medium text-gray-900">{task.title}</p>
-              <div className="mt-2 flex space-x-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => startEdit(task)}
-                >
-                  Editar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDelete(task.id)}
-                >
-                  Excluir
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Logout handler
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Logout realizado");
-    window.location.href = "/login";
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Minha Lista de Tarefas
-          </h1>
-          <Button variant="outline" onClick={handleLogout}>
-            Sair
-          </Button>
-        </div>
-
-        {/* Task Form */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <form
-            className="flex flex-col sm:flex-row gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSave();
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Nova tarefa..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              disabled={loading}
-              className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition"
-            >
-              {loading ? "Salvando..." : "Adicionar"}
-            </Button>
-          </form>
-        </div>
-
-        {/* Tasks List */}
-        {user ? (
-          <>
-            {loading ? (
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Carregando tarefas...</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {tasks.length === 0 ? (
-                  <p className="text-center text-gray-500">
-                    Nenhuma tarefa ainda. Crie a primeira!
-                  </p>
-                ) : (
-                  tasks.map(renderTask)
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-center mt-10">
-            <p className="text-gray-500">
-              Faça login para gerenciar suas tarefas.
-            </p>
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+        <nav className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500">
+              <CheckCircle2 className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-lg font-bold tracking-tight">Meu To Do</span>
           </div>
-        )}
 
-        {/* Footer note */}
-        <div className="text-center mt-12 text-sm text-gray-500">
-          © {new Date().getFullYear()} Seu App Web
-        </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              className="text-white hover:bg-white/10 hover:text-white"
+              asChild
+            >
+              <Link to="/login">Entrar</Link>
+            </Button>
+            <Button
+              className="bg-white text-slate-950 hover:bg-slate-100"
+              asChild
+            >
+              <Link to="/register">Criar conta</Link>
+            </Button>
+          </div>
+        </nav>
+
+        <section className="grid flex-1 items-center gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <Badge className="border-indigo-300 bg-indigo-500/20 text-indigo-100">
+              Simples, rápido e sincronizado
+            </Badge>
+
+            <h1 className="mt-5 text-4xl font-extrabold tracking-tight sm:text-6xl">
+              Organize seu dia sem complicação.
+            </h1>
+
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+              Um app de tarefas com login, cadastro, criação, edição, exclusão e
+              dashboard personalizado para você focar no que realmente importa.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button
+                size="lg"
+                className="bg-indigo-400 text-slate-950 hover:bg-indigo-300"
+                asChild
+              >
+                <Link to="/register">Começar agora</Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10 hover:text-white"
+                asChild
+              >
+                <Link to="/login">Fazer login</Link>
+              </Button>
+            </div>
+          </div>
+
+          <Card className="border-white/10 bg-white/10 text-white shadow-2xl backdrop-blur">
+            <CardHeader>
+              <CardTitle>Como funciona</CardTitle>
+              <CardDescription className="text-slate-300">
+                Fluxo completo para gerenciar suas tarefas diárias.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {features.map((feature) => (
+                <div
+                  key={feature.title}
+                  className="flex gap-4 rounded-2xl border border-white/10 bg-white/10 p-4"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-500">
+                    <feature.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{feature.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
+
+        <MadeWithDyad />
       </div>
-    </div>
+    </main>
   );
 };
 

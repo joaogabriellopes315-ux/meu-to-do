@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CheckCircle2 } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -11,89 +22,92 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setLoading(true);
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Login realizado com sucesso!");
-        navigate("/dashboard", { replace: true });
-      }
-    } catch (error) {
-      toast.error("Ocorreu um erro durante o login");
-    } finally {
-      setLoading(false);
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+
+    if (!data.session) {
+      toast.info("Verifique seu e-mail para confirmar o acesso.");
+      return;
+    }
+
+    toast.success("Login realizado com sucesso!");
+    navigate("/dashboard", { replace: true });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo de volta!</h1>
-          <p className="text-gray-600">Faça login para acessar seu dashboard</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-            />
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+      <Card className="w-full max-w-md border-slate-200 bg-white shadow-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600">
+            <CheckCircle2 className="h-6 w-6 text-white" />
           </div>
+          <CardTitle className="text-2xl font-bold text-slate-950">
+            Bem-vindo de volta
+          </CardTitle>
+          <CardDescription>
+            Entre para acessar seu painel de tarefas.
+          </CardDescription>
+        </CardHeader>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Senha
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu@email.com"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Sua senha"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
               disabled={loading}
-            />
-          </div>
+            >
+              {loading ? "Entrando..." : "Entrar"}
+            </Button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-        </form>
-
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Não tem uma conta?{' '}
-            <a href="/register" className="text-blue-600 hover:text-blue-800 font-medium">
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Não tem uma conta?{" "}
+            <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-700">
               Cadastre-se
-            </a>
+            </Link>
           </p>
-        </div>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 };
 
