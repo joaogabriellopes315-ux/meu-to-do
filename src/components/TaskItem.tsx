@@ -5,15 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/date";
 import type { Task } from "@/types/task";
-import { CheckCircle2, PencilLine, Trash2 } from "lucide-react";
+import { CheckCircle2, PencilLine, Trash2, Calendar, FileText } from "lucide-react";
 
 type TaskItemProps = {
   task: Task;
   isEditing: boolean;
   editingTitle: string;
+  editingDescription: string;
+  editingDueDate: string;
   onEditingTitleChange: (value: string) => void;
+  onEditingDescriptionChange: (value: string) => void;
+  onEditingDueDateChange: (value: string) => void;
   onStartEdit: (task: Task) => void;
-  onSaveEdit: (id: string, title: string) => void | Promise<void>;
+  onSaveEdit: (id: string, title: string, description: string, dueDate: string) => void | Promise<void>;
   onCancelEdit: () => void;
   onDelete: (id: string) => void | Promise<void>;
   loading?: boolean;
@@ -23,7 +27,11 @@ export function TaskItem({
   task,
   isEditing,
   editingTitle,
+  editingDescription,
+  editingDueDate,
   onEditingTitleChange,
+  onEditingDescriptionChange,
+  onEditingDueDateChange,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -32,7 +40,7 @@ export function TaskItem({
 }: TaskItemProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSaveEdit(task.id, editingTitle);
+    await onSaveEdit(task.id, editingTitle, editingDescription, editingDueDate);
   };
 
   return (
@@ -41,13 +49,40 @@ export function TaskItem({
         {isEditing ? (
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <Label htmlFor={`task-edit-${task.id}`} className="text-slate-700">
+              <Label htmlFor={`task-edit-title-${task.id}`} className="text-slate-700">
                 Título da tarefa
               </Label>
               <Input
-                id={`task-edit-${task.id}`}
+                id={`task-edit-title-${task.id}`}
                 value={editingTitle}
                 onChange={(event) => onEditingTitleChange(event.target.value)}
+                disabled={loading}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor={`task-edit-desc-${task.id}`} className="text-slate-700">
+                Descrição
+              </Label>
+              <Input
+                id={`task-edit-desc-${task.id}`}
+                value={editingDescription}
+                onChange={(event) => onEditingDescriptionChange(event.target.value)}
+                disabled={loading}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor={`task-edit-due-${task.id}`} className="text-slate-700">
+                Data de vencimento
+              </Label>
+              <Input
+                id={`task-edit-due-${task.id}`}
+                type="date"
+                value={editingDueDate}
+                onChange={(event) => onEditingDueDateChange(event.target.value)}
                 disabled={loading}
                 className="mt-2"
               />
@@ -75,13 +110,27 @@ export function TaskItem({
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-500" />
-              <div>
-                <p className="text-base font-semibold text-slate-950">
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-slate-950 truncate">
                   {task.title}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Criada em {formatDate(task.created_at)}
-                </p>
+                {task.description && (
+                  <p className="mt-1 text-sm text-slate-600 line-clamp-2">
+                    {task.description}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Criada em {formatDate(task.created_at)}
+                  </span>
+                  {task.due_date && (
+                    <span className="flex items-center gap-1 text-amber-600 font-medium">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Vence em {formatDate(task.due_date)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -9,9 +9,13 @@ type TaskListProps = {
   saving: boolean;
   editingId: string | null;
   editingTitle: string;
+  editingDescription: string;
+  editingDueDate: string;
   onEditingTitleChange: (value: string) => void;
+  onEditingDescriptionChange: (value: string) => void;
+  onEditingDueDateChange: (value: string) => void;
   onStartEdit: (task: Task) => void;
-  onSaveEdit: (id: string, title: string) => void | Promise<void>;
+  onSaveEdit: (id: string, title: string, description: string, dueDate: string) => void | Promise<void>;
   onCancelEdit: () => void;
   onDelete: (id: string) => void | Promise<void>;
 };
@@ -22,7 +26,11 @@ export function TaskList({
   saving,
   editingId,
   editingTitle,
+  editingDescription,
+  editingDueDate,
   onEditingTitleChange,
+  onEditingDescriptionChange,
+  onEditingDueDateChange,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -66,7 +74,11 @@ export function TaskList({
             task={task}
             isEditing={editingId === task.id}
             editingTitle={editingTitle}
+            editingDescription={editingDescription}
+            editingDueDate={editingDueDate}
             onEditingTitleChange={onEditingTitleChange}
+            onEditingDescriptionChange={onEditingDescriptionChange}
+            onEditingDueDateChange={onEditingDueDateChange}
             onStartEdit={onStartEdit}
             onSaveEdit={onSaveEdit}
             onCancelEdit={onCancelEdit}

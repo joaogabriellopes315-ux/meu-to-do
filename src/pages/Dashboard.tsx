@@ -26,6 +26,8 @@ const Dashboard = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingDescription, setEditingDescription] = useState("");
+  const [editingDueDate, setEditingDueDate] = useState("");
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null);
 
   const fetchTasks = useCallback(async () => {
@@ -98,7 +100,7 @@ const Dashboard = () => {
     };
   }, [editingId, tasks.length, user]);
 
-  const handleCreateTask = async (title: string) => {
+  const handleCreateTask = async (title: string, description: string, dueDate: string) => {
     if (!user) {
       toast.error("Faça login para criar tarefas.");
       return;
@@ -108,6 +110,8 @@ const Dashboard = () => {
 
     const { error } = await supabase.from("tasks").insert({
       title,
+      description: description || null,
+      due_date: dueDate || null,
       user_id: user.id,
     });
 
@@ -125,14 +129,18 @@ const Dashboard = () => {
   const startEdit = (task: Task) => {
     setEditingId(task.id);
     setEditingTitle(task.title);
+    setEditingDescription(task.description ?? "");
+    setEditingDueDate(task.due_date ? task.due_date.split("T")[0] : "");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditingTitle("");
+    setEditingDescription("");
+    setEditingDueDate("");
   };
 
-  const handleSaveEdit = async (id: string, title: string) => {
+  const handleSaveEdit = async (id: string, title: string, description: string, dueDate: string) => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle) {
@@ -144,7 +152,11 @@ const Dashboard = () => {
 
     const { error } = await supabase
       .from("tasks")
-      .update({ title: normalizedTitle })
+      .update({
+        title: normalizedTitle,
+        description: description || null,
+        due_date: dueDate || null,
+      })
       .eq("id", id);
 
     setSaving(false);
@@ -156,6 +168,8 @@ const Dashboard = () => {
 
     setEditingId(null);
     setEditingTitle("");
+    setEditingDescription("");
+    setEditingDueDate("");
     toast.success("Tarefa atualizada com sucesso.");
     await fetchTasks();
   };
@@ -252,6 +266,8 @@ const Dashboard = () => {
               loading={saving}
               isEditing={Boolean(editingId)}
               initialTitle={editingTitle}
+              initialDescription={editingDescription}
+              initialDueDate={editingDueDate}
               onCancel={cancelEdit}
             />
 
@@ -264,7 +280,8 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-slate-600">
                 <p>• Use títulos curtos e específicos.</p>
-                <p>• Edite tarefas sempre que o contexto mudar.</p>
+                <p>• Adicione descrições para contexto extra.</p>
+                <p>• Defina datas de vencimento para priorizar.</p>
                 <p>• Remova itens concluídos ou que não fazem mais sentido.</p>
               </CardContent>
             </Card>
@@ -297,7 +314,11 @@ const Dashboard = () => {
               saving={saving}
               editingId={editingId}
               editingTitle={editingTitle}
+              editingDescription={editingDescription}
+              editingDueDate={editingDueDate}
               onEditingTitleChange={setEditingTitle}
+              onEditingDescriptionChange={setEditingDescription}
+              onEditingDueDateChange={setEditingDueDate}
               onStartEdit={startEdit}
               onSaveEdit={handleSaveEdit}
               onCancelEdit={cancelEdit}
