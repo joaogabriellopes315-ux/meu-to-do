@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Index = () => {
   // States
@@ -127,7 +127,7 @@ const Index = () => {
   const renderTask = (task: any) => {
     const isEditing = editingId === task.id;
     return (
-      <Card className="bg-white shadow-sm mb-2 rounded-lg overflow-hidden">
+      <Card key={task.id} className="bg-white shadow-sm mb-2 rounded-lg overflow-hidden">
         <CardContent className="p-3">
           {isEditing ? (
             <input
@@ -152,7 +152,8 @@ const Index = () => {
                   variant="destructive"
                   onClick={() => handleDelete(task.id)}
                 >
-                  Excluir                </Button>
+                  Excluir
+                </Button>
               </div>
             </>
           )}
@@ -168,7 +169,7 @@ const Index = () => {
     window.location.href = "/login";
   };
 
-  // Main UI  return (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -190,7 +191,8 @@ const Index = () => {
               handleSave();
             }}
           >
-            <input              type="text"
+            <input
+              type="text"
               placeholder="Nova tarefa..."
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
