@@ -26,27 +26,7 @@ const Dashboard = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [editingDescription, setEditingDescription] = useState("");
-  const [editingDueDate, setEditingDueDate] = useState("");
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null);
-
-  const fetchTasks = useCallback(async () => {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    setLoading(false);
-
-    if (error) {
-      toast.error("Não foi possível carregar suas tarefas.");
-      return;
-    }
-
-    setTasks(data ?? []);
-  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -59,6 +39,31 @@ const Dashboard = () => {
 
     loadUser();
   }, []);
+
+  const fetchTasks = useCallback(async () => {
+    if (!user) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    setLoading(false);
+
+    if (error) {
+      toast.error("Não foi possível carregar suas tarefas.");
+      return;
+    }
+
+    setTasks(data ?? []);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -100,18 +105,23 @@ const Dashboard = () => {
     };
   }, [editingId, tasks.length, user]);
 
-  const handleCreateTask = async (title: string, description: string, dueDate: string) => {
+  const handleCreateTask = async (title: string) => {
     if (!user) {
       toast.error("Faça login para criar tarefas.");
+      return;
+    }
+
+    const normalizedTitle = title.trim();
+
+    if (!normalizedTitle) {
+      toast.error("Digite um título para a tarefa.");
       return;
     }
 
     setSaving(true);
 
     const { error } = await supabase.from("tasks").insert({
-      title,
-      description: description || null,
-      due_date: dueDate || null,
+      title: normalizedTitle,
       user_id: user.id,
     });
 
@@ -129,18 +139,14 @@ const Dashboard = () => {
   const startEdit = (task: Task) => {
     setEditingId(task.id);
     setEditingTitle(task.title);
-    setEditingDescription(task.description ?? "");
-    setEditingDueDate(task.due_date ? task.due_date.split("T")[0] : "");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditingTitle("");
-    setEditingDescription("");
-    setEditingDueDate("");
   };
 
-  const handleSaveEdit = async (id: string, title: string, description: string, dueDate: string) => {
+  const handleSaveEdit = async (id: string, title: string) => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle) {
@@ -152,11 +158,7 @@ const Dashboard = () => {
 
     const { error } = await supabase
       .from("tasks")
-      .update({
-        title: normalizedTitle,
-        description: description || null,
-        due_date: dueDate || null,
-      })
+      .update({ title: normalizedTitle })
       .eq("id", id);
 
     setSaving(false);
@@ -166,11 +168,8 @@ const Dashboard = () => {
       return;
     }
 
-    setEditingId(null);
-    setEditingTitle("");
-    setEditingDescription("");
-    setEditingDueDate("");
     toast.success("Tarefa atualizada com sucesso.");
+    cancelEdit();
     await fetchTasks();
   };
 
@@ -266,8 +265,6 @@ const Dashboard = () => {
               loading={saving}
               isEditing={Boolean(editingId)}
               initialTitle={editingTitle}
-              initialDescription={editingDescription}
-              initialDueDate={editingDueDate}
               onCancel={cancelEdit}
             />
 
@@ -280,8 +277,6 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-slate-600">
                 <p>• Use títulos curtos e específicos.</p>
-                <p>• Adicione descrições para contexto extra.</p>
-                <p>• Defina datas de vencimento para priorizar.</p>
                 <p>• Remova itens concluídos ou que não fazem mais sentido.</p>
               </CardContent>
             </Card>
@@ -314,11 +309,7 @@ const Dashboard = () => {
               saving={saving}
               editingId={editingId}
               editingTitle={editingTitle}
-              editingDescription={editingDescription}
-              editingDueDate={editingDueDate}
               onEditingTitleChange={setEditingTitle}
-              onEditingDescriptionChange={setEditingDescription}
-              onEditingDueDateChange={setEditingDueDate}
               onStartEdit={startEdit}
               onSaveEdit={handleSaveEdit}
               onCancelEdit={cancelEdit}
