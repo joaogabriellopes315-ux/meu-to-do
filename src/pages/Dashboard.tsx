@@ -137,6 +137,12 @@ const Dashboard = () => {
     setShowDeleteConfirmation(null);
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Você saiu da conta.");
+    navigate("/login", { replace: true });
+  };
+
   const updateEditConfirmation = (id: string) => {
     setShowEditConfirmation(id);
     setShowDeleteConfirmation(null);
