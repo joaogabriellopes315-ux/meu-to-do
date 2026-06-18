@@ -9,32 +9,26 @@ type TaskListProps = {
   saving: boolean;
   editingId: string | null;
   editingTitle: string;
-  editingDescription: string;
-  editingDueDate: string;
   onEditingTitleChange: (value: string) => void;
-  onEditingDescriptionChange: (value: string) => void;
-  onEditingDueDateChange: (value: string) => void;
   onStartEdit: (task: Task) => void;
-  onSaveEdit: (id: string, title: string, description: string, dueDate: string) => void | Promise<void>;
+  onSaveEdit: (id: string, title: string) => void | Promise<void>;
   onCancelEdit: () => void;
   onDelete: (id: string) => void | Promise<void>;
+  updateEditConfirmation: (id: string) => void;
+  updateDeleteConfirmation: (id: string) => void;
 };
 
-export function TaskList({
-  tasks,
-  loading,
-  saving,
-  editingId,
-  editingTitle,
-  editingDescription,
-  editingDueDate,
-  onEditingTitleChange,
-  onEditingDescriptionChange,
-  onEditingDueDateChange,
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
-  onDelete,
+export function TaskList({ 
+  tasks, 
+  loading, 
+  saving, 
+  editingId, 
+  editingTitle, 
+  onEditingTitleChange, 
+  onStartEdit,   onSaveEdit, 
+  onCancelEdit, 
+  onDelete,   updateEditConfirmation, 
+  updateDeleteConfirmation 
 }: TaskListProps) {
   if (loading) {
     return (
@@ -54,12 +48,8 @@ export function TaskList({
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50">
             <Inbox className="h-6 w-6 text-indigo-600" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-950">
-            Nenhuma tarefa ainda
-          </h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
-            Crie sua primeira tarefa para começar a organizar seu dia.
-          </p>
+          <h3 className="text-lg font-semibold text-slate-950"> Nenhuma tarefa ainda </h3>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500"> Crie sua primeira tarefa para começar a organizar seu dia. </p>
         </div>
       </div>
     );
@@ -69,24 +59,20 @@ export function TaskList({
     <ScrollArea className="h-[520px] rounded-3xl border border-slate-200 bg-white pr-4 shadow-sm">
       <div className="space-y-3 p-3">
         {tasks.map((task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            isEditing={editingId === task.id}
-            editingTitle={editingTitle}
-            editingDescription={editingDescription}
-            editingDueDate={editingDueDate}
-            onEditingTitleChange={onEditingTitleChange}
-            onEditingDescriptionChange={onEditingDescriptionChange}
-            onEditingDueDateChange={onEditingDueDateChange}
-            onStartEdit={onStartEdit}
-            onSaveEdit={onSaveEdit}
-            onCancelEdit={onCancelEdit}
-            onDelete={onDelete}
-            loading={saving}
-          />
+          <TaskItem 
+            key={task.id} 
+            task={task} 
+            isEditing={editingId === task.id} 
+            editingTitle={editingTitle} 
+            editingDescription={task.description ?? ""}             editingDueDate={task.due_date ? task.due_date.split("T")[0] : ""} 
+            onEditingTitleChange={onEditingTitleChange} 
+            onStartEdit={onStartEdit} 
+            onSaveEdit={onSaveEdit}             onCancelEdit={onCancelEdit} 
+            onDelete={onDelete}             updateEditConfirmation={updateEditConfirmation} 
+            updateDeleteConfirmation={updateDeleteConfirmation} 
+            loading={saving}           />
         ))}
       </div>
     </ScrollArea>
   );
-}
+};

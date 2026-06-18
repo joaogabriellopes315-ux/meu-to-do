@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/date";
 import type { Task } from "@/types/task";
-import { CheckCircle2, PencilLine, Trash2, Calendar, FileText } from "lucide-react";
+import { CheckCircle2, PencilLine, Trash2, Calendar } from "lucide-react";
 
 type TaskItemProps = {
   task: Task;
@@ -14,33 +14,31 @@ type TaskItemProps = {
   editingDescription: string;
   editingDueDate: string;
   onEditingTitleChange: (value: string) => void;
-  onEditingDescriptionChange: (value: string) => void;
-  onEditingDueDateChange: (value: string) => void;
   onStartEdit: (task: Task) => void;
-  onSaveEdit: (id: string, title: string, description: string, dueDate: string) => void | Promise<void>;
+  onSaveEdit: (id: string, title: string) => void | Promise<void>;
   onCancelEdit: () => void;
   onDelete: (id: string) => void | Promise<void>;
-  loading?: boolean;
+  updateEditConfirmation: (id: string) => void;
+  updateDeleteConfirmation: (id: string) => void;
+  loading: boolean;
 };
 
-export function TaskItem({
-  task,
-  isEditing,
-  editingTitle,
-  editingDescription,
-  editingDueDate,
-  onEditingTitleChange,
-  onEditingDescriptionChange,
-  onEditingDueDateChange,
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
-  onDelete,
-  loading = false,
+export function TaskItem({   task, 
+  isEditing, 
+  editingTitle, 
+  editingDescription, 
+  editingDueDate,   onEditingTitleChange, 
+  onStartEdit, 
+  onSaveEdit, 
+  onCancelEdit, 
+  onDelete, 
+  updateEditConfirmation, 
+  updateDeleteConfirmation, 
+  loading 
 }: TaskItemProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSaveEdit(task.id, editingTitle, editingDescription, editingDueDate);
+    await onSaveEdit(task.id, editingTitle);
   };
 
   return (
@@ -49,60 +47,56 @@ export function TaskItem({
         {isEditing ? (
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <Label htmlFor={`task-edit-title-${task.id}`} className="text-slate-700">
-                Título da tarefa
+              <Label htmlFor="task-edit-title" className="text-slate-700"> 
+                Título da tarefa 
               </Label>
-              <Input
-                id={`task-edit-title-${task.id}`}
-                value={editingTitle}
-                onChange={(event) => onEditingTitleChange(event.target.value)}
-                disabled={loading}
-                className="mt-2"
+              <Input 
+                id="task-edit-title" 
+                value={editingTitle} 
+                onChange={(event) => onEditingTitleChange(event.target.value)} 
+                disabled={loading} 
+                className="mt-2" 
               />
             </div>
-
             <div>
-              <Label htmlFor={`task-edit-desc-${task.id}`} className="text-slate-700">
-                Descrição
+              <Label htmlFor="task-edit-desc" className="text-slate-700">                 Descrição 
               </Label>
-              <Input
-                id={`task-edit-desc-${task.id}`}
-                value={editingDescription}
-                onChange={(event) => onEditingDescriptionChange(event.target.value)}
-                disabled={loading}
-                className="mt-2"
+              <Input 
+                id="task-edit-desc" 
+                value={editingDescription} 
+                onChange={(event) => onEditingTitleChange(event.target.value)} 
+                disabled={loading} 
+                className="mt-2" 
               />
             </div>
-
             <div>
-              <Label htmlFor={`task-edit-due-${task.id}`} className="text-slate-700">
-                Data de vencimento
+              <Label htmlFor="task-edit-due" className="text-slate-700"> 
+                Data de vencimento 
               </Label>
-              <Input
-                id={`task-edit-due-${task.id}`}
-                type="date"
-                value={editingDueDate}
-                onChange={(event) => onEditingDueDateChange(event.target.value)}
-                disabled={loading}
-                className="mt-2"
+              <Input 
+                id="task-edit-due" 
+                type="date" 
+                value={editingDueDate} 
+                onChange={(event) => onEditingTitleChange(event.target.value)} 
+                disabled={loading} 
+                className="mt-2" 
               />
             </div>
-
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancelEdit}
-                disabled={loading}
+              {isEditing && (
+                <Button 
+                  type="button" 
+                  variant="outline"                   onClick={onCancelEdit}                   disabled={loading} 
+                >
+                  Cancelar
+                </Button>
+              )}
+              <Button 
+                type="submit" 
+                disabled={loading || !editingTitle.trim()} 
+                className="bg-indigo-600 hover:bg-indigo-700" 
               >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || !editingTitle.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                Salvar
+                {loading ? "Salvando..." : isEditing ? "Salvar alteração" : "Adicionar tarefa"}
               </Button>
             </div>
           </form>
@@ -111,48 +105,53 @@ export function TaskItem({
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-500" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-slate-950 truncate">
-                  {task.title}
+                <p className="text-base font-semibold text-slate-950 truncate"> 
+                  {task.title} 
                 </p>
                 {task.description && (
-                  <p className="mt-1 text-sm text-slate-600 line-clamp-2">
-                    {task.description}
+                  <p className="mt-1 text-sm text-slate-600 line-clamp-2"> 
+                    {task.description} 
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Criada em {formatDate(task.created_at)}
+                  <span className="flex items-center gap-1"> 
+                    <Calendar className="h-3.5 w-3.5" /> 
+                    Criada em {formatDate(task.created_at)} 
                   </span>
                   {task.due_date && (
-                    <span className="flex items-center gap-1 text-amber-600 font-medium">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Vence em {formatDate(task.due_date)}
+                    <span className="flex items-center gap-1 text-amber-600 font-medium"> 
+                      <Calendar className="h-3.5 w-3.5" /> 
+                      Vence em {formatDate(task.due_date)} 
                     </span>
                   )}
                 </div>
               </div>
             </div>
-
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onStartEdit(task)}
-                disabled={loading}
+              <Button 
+                type="button" 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  onStartEdit(task);
+                  updateEditConfirmation(task.id);
+                }} 
+                disabled={loading} 
               >
-                <PencilLine className="mr-2 h-4 w-4" />
+                <PencilLine className="mr-2 h-4 w-4" /> 
                 Editar
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => onDelete(task.id)}
-                disabled={loading}
+              <Button 
+                type="button" 
+                size="sm" 
+                variant="destructive" 
+                onClick={() => {
+                  onDelete(task.id);
+                  updateDeleteConfirmation(task.id);
+                }} 
+                disabled={loading} 
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 h-4 w-4" /> 
                 Excluir
               </Button>
             </div>
@@ -161,4 +160,4 @@ export function TaskItem({
       </CardContent>
     </Card>
   );
-}
+};
