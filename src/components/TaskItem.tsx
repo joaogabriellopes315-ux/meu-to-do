@@ -49,9 +49,7 @@ export function TaskItem({
               <Input
                 id="task-edit-title"
                 value={editingTitle}
-                onChange={(event) =>
-                  onEditingTitleChange(event.target.value)
-                }
+                onChange={(event) => onEditingTitleChange(event.target.value)}
                 disabled={loading}
                 className="mt-2"
               />

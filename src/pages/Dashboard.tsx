@@ -18,21 +18,18 @@ import { TaskList } from "@/components/TaskList";
 import type { Task } from "@/types/task";
 import { CheckCircle2, ListTodo, LogOut, PlusCircle } from "lucide-react";
 
-const Dashboard = () => {
+export default function Dashboard() {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<string | null>(null);
-  const [showEditConfirmation, setShowEditConfirmation] = useState<string | null>(null);
-  const [pendingEditTitle, setPendingEditTitle] = useState('');
+  const [editingTitle, setEditingTitle] = useState("");
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null);
 
   // Carrega tarefas do localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('tasks');
+    const saved = localStorage.getItem("tasks");
     if (saved) {
       setTasks(JSON.parse(saved));
     }
@@ -40,13 +37,15 @@ const Dashboard = () => {
 
   // Salva tarefas no localStorage
   useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+    localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
   // Carrega usuário autenticado
   useEffect(() => {
     const loadUser = async () => {
-      const { data: { user }, } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
     };
     loadUser();
@@ -67,54 +66,55 @@ const Dashboard = () => {
       id: crypto.randomUUID(),
       title: normalizedTitle,
       user_id: user.id,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
-    setTasks(prev => [...prev, newTask]);
+    setTasks((prev) => [...prev, newTask]);
     setSaving(false);
     toast.success("Tarefa adicionada com sucesso.");
   };
 
-  const handleStartEdit = (task: Task) => {
+  const handleStartEdit = useCallback((task: Task) => {
     setEditingTaskId(task.id);
-    setEditingTask(task);
-    setPendingEditTitle(task.title);
-  };
+    setEditingTitle(task.title);
+  }, []);
 
-  const handleSaveEdit = () => {
-    if (!pendingEditTitle.trim()) {
-      toast.error("Digite um título para a tarefa.");
-      return;
-    }
-    setShowEditConfirmation(editingTaskId);
-  };
+  const handleEditingTitleChange = useCallback((value: string) => {
+    setEditingTitle(value);
+  }, []);
 
-  const handleConfirmEdit = (id: string) => {
-    setSaving(true);
-    setTasks(prev => {
-      const updated = prev.map(task =>
-        task.id === id ? { ...task, title: pendingEditTitle } : task
+  const handleSaveEdit = useCallback(
+    (id: string) => {
+      if (!editingTitle.trim()) {
+        toast.error("Digite um título para a tarefa.");
+        return;
+      }
+      setSaving(true);
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === id ? { ...task, title: editingTitle } : task
+        )
       );
-      return updated;
-    });
-    setSaving(false);
-    toast.success("Tarefa atualizada com sucesso.");
-    setShowEditConfirmation(null);
+      setSaving(false);
+      toast.success("Tarefa atualizada com sucesso.");
+      setEditingTaskId(null);
+      setEditingTitle("");
+    },
+    [editingTitle]
+  );
+
+  const handleCancelEdit = useCallback(() => {
     setEditingTaskId(null);
-    setEditingTask(null);
-    setPendingEditTitle('');
-  };
+    setEditingTitle("");
+  }, []);
 
-  const handleDeleteTask = (id: string) => {
-    setShowDeleteConfirmation(id);
-  };
-
-  const handleConfirmDelete = (id: string) => {
-    setSaving(true);
-    setTasks(prev => prev.filter(task => task.id !== id));
-    setSaving(false);
-    toast.success("Tarefa removida com sucesso.");
-    setShowDeleteConfirmation(null);
-  };
+  const handleDelete = useCallback((id: string) => {
+    if (window.confirm("Tem certeza que deseja excluir esta tarefa?")) {
+      setSaving(true);
+      setTasks((prev) => prev.filter((task) => task.id !== id));
+      setSaving(false);
+      toast.success("Tarefa removida com sucesso.");
+    }
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -194,12 +194,8 @@ const Dashboard = () => {
               onSubmit={handleCreateTask}
               loading={saving}
               isEditing={!!editingTaskId}
-              initialTitle={editingTask?.title ?? ""}
-              onCancel={() => {
-                setEditingTaskId(null);
-                setEditingTask(null);
-                setPendingEditTitle('');
-              }}
+              initialTitle={editingTaskId ? editingTitle : ""}
+              onCancel={handleCancelEdit}
             />
             <Card className="border-slate-200 bg-white shadow-sm">
               <CardHeader>
@@ -232,22 +228,17 @@ const Dashboard = () => {
               loading={loading}
               saving={saving}
               editingTaskId={editingTaskId}
-              editingTask={editingTask}
-              onEditingTitleChange={setPendingEditTitle}
+              editingTitle={editingTitle}
+              editingTask={tasks.find((t) => t.id === editingTaskId) || null}
+              onEditingTitleChange={handleEditingTitleChange}
               onStartEdit={handleStartEdit}
-              onSaveEdit={handleConfirmEdit}
-              onCancelEdit={() => {
-                setEditingTaskId(null);
-                setEditingTask(null);
-                setPendingEditTitle('');
-              }}
-              onDelete={handleDeleteTask}
+              onSaveEdit={handleSaveEdit}
+              onCancelEdit={handleCancelEdit}
+              onDelete={handleDelete}
             />
           </div>
         </section>
       </div>
     </main>
   );
-};
-
-export default Dashboard;
+}
