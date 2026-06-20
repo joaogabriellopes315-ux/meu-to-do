@@ -132,6 +132,26 @@ export function TaskItem({
                 </span>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onStartEdit(task)}
+              >
+                <PencilLine className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => onDelete(task.id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
