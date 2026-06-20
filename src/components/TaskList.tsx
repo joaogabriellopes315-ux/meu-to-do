@@ -9,10 +9,14 @@ type TaskListProps = {
   saving: boolean;
   editingTaskId: string | null;
   editingTitle: string;
+  editingDescription: string;
+  editingDueDate: string;
   editingTask: Task | null;
   onEditingTitleChange: (value: string) => void;
+  onEditingDescriptionChange: (value: string) => void;
+  onEditingDueDateChange: (value: string) => void;
   onStartEdit: (task: Task) => void;
-  onSaveEdit: (id: string) => void;
+  onSaveEdit: (id: string, title: string, description: string, dueDate: string) => void;
   onCancelEdit: () => void;
   onDelete: (id: string) => void;
 };
@@ -23,8 +27,12 @@ export function TaskList({
   saving,
   editingTaskId,
   editingTitle,
+  editingDescription,
+  editingDueDate,
   editingTask,
   onEditingTitleChange,
+  onEditingDescriptionChange,
+  onEditingDueDateChange,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -66,8 +74,12 @@ export function TaskList({
             task={task}
             isEditing={editingTaskId === task.id}
             editingTitle={editingTaskId === task.id ? editingTitle : ""}
+            editingDescription={editingTaskId === task.id ? editingDescription : ""}
+            editingDueDate={editingTaskId === task.id ? editingDueDate : ""}
             editingTask={editingTaskId === task.id ? task : null}
             onEditingTitleChange={onEditingTitleChange}
+            onEditingDescriptionChange={onEditingDescriptionChange}
+            onEditingDueDateChange={onEditingDueDateChange}
             onStartEdit={onStartEdit}
             onSaveEdit={onSaveEdit}
             onCancelEdit={onCancelEdit}

@@ -25,6 +25,8 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingDescription, setEditingDescription] = useState("");
+  const [editingDueDate, setEditingDueDate] = useState("");
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null);
 
   // Carrega tarefas do localStorage
@@ -51,12 +53,14 @@ export default function Dashboard() {
     loadUser();
   }, []);
 
-  const handleCreateTask = async (title: string) => {
+  const handleCreateTask = async (title: string, description: string, dueDate: string) => {
     if (!user) {
       toast.error("Faça login para criar tarefas.");
       return;
     }
     const normalizedTitle = title.trim();
+    const normalizedDescription = description.trim();
+
     if (!normalizedTitle) {
       toast.error("Digite um título para a tarefa.");
       return;
@@ -65,6 +69,8 @@ export default function Dashboard() {
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: normalizedTitle,
+      description: normalizedDescription || null,
+      due_date: dueDate || null,
       user_id: user.id,
       created_at: new Date().toISOString(),
     };
@@ -76,35 +82,56 @@ export default function Dashboard() {
   const handleStartEdit = useCallback((task: Task) => {
     setEditingTaskId(task.id);
     setEditingTitle(task.title);
+    setEditingDescription(task.description || "");
+    setEditingDueDate(task.due_date?.split("T")[0] || "");
   }, []);
 
   const handleEditingTitleChange = useCallback((value: string) => {
     setEditingTitle(value);
   }, []);
 
+  const handleEditingDescriptionChange = useCallback((value: string) => {
+    setEditingDescription(value);
+  }, []);
+
+  const handleEditingDueDateChange = useCallback((value: string) => {
+    setEditingDueDate(value);
+  }, []);
+
   const handleSaveEdit = useCallback(
-    (id: string) => {
-      if (!editingTitle.trim()) {
+    (id: string, title: string, description: string, dueDate: string) => {
+      if (!title.trim()) {
         toast.error("Digite um título para a tarefa.");
         return;
       }
       setSaving(true);
       setTasks((prev) =>
         prev.map((task) =>
-          task.id === id ? { ...task, title: editingTitle } : task
+          task.id === id
+            ? {
+                ...task,
+                title,
+                description: description || null,
+                due_date: dueDate || null,
+              }
+            : task
         )
       );
       setSaving(false);
       toast.success("Tarefa atualizada com sucesso.");
       setEditingTaskId(null);
       setEditingTitle("");
+      setEditingDescription("");
+      setEditingDueDate("");
     },
-    [editingTitle]
+    []
   );
 
   const handleCancelEdit = useCallback(() => {
     setEditingTaskId(null);
     setEditingTitle("");
+    setEditingDescription("");
+    setEditingDueDate("");
   }, []);
 
   const handleDelete = useCallback((id: string) => {
@@ -195,6 +222,8 @@ export default function Dashboard() {
               loading={saving}
               isEditing={!!editingTaskId}
               initialTitle={editingTaskId ? editingTitle : ""}
+              initialDescription={editingTaskId ? editingDescription : ""}
+              initialDueDate={editingTaskId ? editingDueDate : ""}
               onCancel={handleCancelEdit}
             />
             <Card className="border-slate-200 bg-white shadow-sm">
@@ -229,8 +258,12 @@ export default function Dashboard() {
               saving={saving}
               editingTaskId={editingTaskId}
               editingTitle={editingTitle}
+              editingDescription={editingDescription}
+              editingDueDate={editingDueDate}
               editingTask={tasks.find((t) => t.id === editingTaskId) || null}
               onEditingTitleChange={handleEditingTitleChange}
+              onEditingDescriptionChange={handleEditingDescriptionChange}
+              onEditingDueDateChange={handleEditingDueDateChange}
               onStartEdit={handleStartEdit}
               onSaveEdit={handleSaveEdit}
               onCancelEdit={handleCancelEdit}

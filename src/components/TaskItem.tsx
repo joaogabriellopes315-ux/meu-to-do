@@ -11,10 +11,14 @@ type TaskItemProps = {
   task: Task;
   isEditing: boolean;
   editingTitle: string;
+  editingDescription: string;
+  editingDueDate: string;
   editingTask: Task | null;
   onEditingTitleChange: (value: string) => void;
+  onEditingDescriptionChange: (value: string) => void;
+  onEditingDueDateChange: (value: string) => void;
   onStartEdit: (task: Task) => void;
-  onSaveEdit: (id: string) => void;
+  onSaveEdit: (id: string, title: string, description: string, dueDate: string) => void;
   onCancelEdit: () => void;
   onDelete: (id: string) => void;
   loading: boolean;
@@ -24,8 +28,12 @@ export function TaskItem({
   task,
   isEditing,
   editingTitle,
+  editingDescription,
+  editingDueDate,
   editingTask,
   onEditingTitleChange,
+  onEditingDescriptionChange,
+  onEditingDueDateChange,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -34,7 +42,12 @@ export function TaskItem({
 }: TaskItemProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSaveEdit(editingTask?.id ?? "");
+    onSaveEdit(
+      editingTask?.id ?? "",
+      editingTitle,
+      editingDescription,
+      editingDueDate
+    );
   };
 
   return (
@@ -60,10 +73,8 @@ export function TaskItem({
               </Label>
               <Input
                 id="task-edit-desc"
-                value={task.description ?? ""}
-                onChange={(event) =>
-                  onEditingTitleChange(event.target.value)
-                }
+                value={editingDescription}
+                onChange={(event) => onEditingDescriptionChange(event.target.value)}
                 disabled={loading}
                 className="mt-2"
               />
@@ -75,10 +86,8 @@ export function TaskItem({
               <Input
                 id="task-edit-due"
                 type="date"
-                value={task.due_date?.split("T")[0] ?? ""}
-                onChange={(event) =>
-                  onEditingTitleChange(event.target.value)
-                }
+                value={editingDueDate}
+                onChange={(event) => onEditingDueDateChange(event.target.value)}
                 disabled={loading}
                 className="mt-2"
               />
